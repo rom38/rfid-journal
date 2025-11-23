@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RFID Журнал посещений</title>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Авторизация -->
+        <div id="authSection" class="card">
+            <h2>🔐 Вход в систему</h2>
+            <input type="text" id="username" placeholder="Логин" value="test">
+            <input type="password" id="password" placeholder="Пароль" value="password">
+            <button class="btn" onclick="login()">Войти</button>
+        </div>
+
+        <!-- Основной интерфейс -->
+        <div id="mainSection" class="hidden">
+            <div class="card">
+                <h1>📚 Школьный журнал посещений</h1>
+                <p>Добро пожаловать, <span id="userName">Пользователь</span>!</p>
+            </div>
+
+            <div class="grid">
+                <!-- Управление мероприятием -->
+                <div class="card">
+                    <h2>🎬 Управление мероприятием</h2>
+                    <div id="eventStatus" class="status status-disconnected">
+                        Мероприятие не активно
+                    </div>
+                    <button class="btn btn-success" onclick="startEvent()" id="startBtn">Начать мероприятие</button>
+                    <button class="btn btn-danger" onclick="stopEvent()" id="stopBtn" disabled>Завершить мероприятие</button>
+                    
+                    <h3 style="margin-top: 20px;">📋 Зарегистрировать новую карту</h3>
+                    <input type="text" id="cardUid" placeholder="UID RFID карты">
+                    <input type="text" id="studentName" placeholder="ФИО студента">
+                    <input type="text" id="studentClass" placeholder="Класс">
+                    <button class="btn" onclick="registerCard()">Зарегистрировать карту</button>
+                </div>
+
+                <!-- Статус сканирования -->
+                <div class="card">
+                    <h2>📱 RFID Сканер</h2>
+                    <div id="scannerStatus" class="status status-disconnected">
+                        Сканер не подключен
+                    </div>
+                    <button class="btn" onclick="connectScanner()" id="connectBtn">Подключить BLE сканер</button>
+                    
+                    <h3 style="margin-top: 20px;">📊 Статистика</h3>
+                    <div id="statsInfo">
+                        <p>Мероприятий: <span id="statsEvents">0</span></p>
+                        <p>Записей: <span id="statsRecords">0</span></p>
+                        <p>Карт: <span id="statsCards">0</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Журнал событий -->
+            <div class="card">
+                <h2>📝 Журнал событий</h2>
+                <button class="btn" onclick="loadAttendance()">Обновить журнал</button>
+                <button class="btn" onclick="exportData()">Экспорт в CSV</button>
+                <div id="eventLog" style="margin-top: 15px; max-height: 400px; overflow-y: auto;"></div>
+            </div>
+
+            <!-- Для тестирования без BLE -->
+            <div class="card">
+                <h3>🧪 Тестовый ввод RFID (без BLE)</h3>
+                <input type="text" id="testRfidInput" placeholder="Введите тестовый UID RFID">
+                <button class="btn" onclick="simulateRFID()">Симулировать сканирование</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
