@@ -1,23 +1,42 @@
 let currentUser = null;
 let currentEvent = null;
 let bluetoothDevice = null;
+let authToken = null;
+
+// Функция для получения заголовков с авторизацией
+function getAuthHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    return headers;
+}
 
 // Аутентификация
 async function login() {
+    console.log('Login function called');
+    
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
+    
+    console.log('Username:', username, 'Password:', password);
 
     try {
+        console.log('Sending login request...');
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
         });
 
+        console.log('Response status:', response.status);
         const result = await response.json();
+        console.log('Login result:', result);
 
         if (result.success) {
+            console.log('Login successful');
             currentUser = result.user;
+            authToken = result.token;
             document.getElementById('userName').textContent = currentUser.fullName;
             document.getElementById('authSection').classList.add('hidden');
             document.getElementById('mainSection').classList.remove('hidden');
@@ -25,6 +44,7 @@ async function login() {
             loadStats();
             checkActiveEvent();
         } else {
+            console.log('Login failed:', result.error);
             alert('Ошибка входа: ' + result.error);
         }
     } catch (error) {
@@ -41,7 +61,7 @@ async function startEvent() {
     try {
         const response = await fetch('/api/events/start', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
                 name: eventName,
                 organizer: currentUser.fullName
@@ -56,6 +76,8 @@ async function startEvent() {
             document.getElementById('startBtn').disabled = true;
             document.getElementById('stopBtn').disabled = false;
             addToLog(`🎬 Мероприятие начато: "${eventName}"`);
+        } else {
+            alert('Ошибка начала мероприятия: ' + result.error);
         }
     } catch (error) {
         console.error('Error starting event:', error);
@@ -68,7 +90,8 @@ async function stopEvent() {
 
     try {
         const response = await fetch(`/api/events/${currentEvent.id}/stop`, {
-            method: 'POST'
+            method: 'POST',
+            headers: getAuthHeaders()
         });
 
         const result = await response.json();
@@ -79,15 +102,20 @@ async function stopEvent() {
             document.getElementById('stopBtn').disabled = true;
             addToLog('⏹ Мероприятие завершено');
             currentEvent = null;
+        } else {
+            alert('Ошибка завершения мероприятия: ' + result.error);
         }
     } catch (error) {
         console.error('Error stopping event:', error);
+        alert('Ошибка завершения мероприятия');
     }
 }
 
 async function checkActiveEvent() {
     try {
-        const response = await fetch('/api/events/active');
+        const response = await fetch('/api/events/active', {
+            headers: getAuthHeaders()
+        });
         const result = await response.json();
 
         if (result.event) {
@@ -127,7 +155,7 @@ async function handleRFIDScan(rfidUid) {
     try {
         const response = await fetch('/api/attendance', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
                 rfid_uid: rfidUid,
                 event_id: currentEvent.id
@@ -139,7 +167,7 @@ async function handleRFIDScan(rfidUid) {
         if (result.success) {
             addToLog(`✅ ${result.studentName} - ${new Date().toLocaleTimeString()}`);
         } else {
-            addToLog(`❌ Ошибка записи: ${rfidUid}`);
+            addToLog(`❌ Ошибка записи: ${result.error || rfidUid}`);
         }
     } catch (error) {
         console.error('Error recording attendance:', error);
@@ -161,7 +189,7 @@ async function registerCard() {
     try {
         const response = await fetch('/api/cards/register', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
                 rfid_uid: uid,
                 student_name: name,
@@ -177,6 +205,8 @@ async function registerCard() {
             document.getElementById('studentName').value = '';
             document.getElementById('studentClass').value = '';
             loadStats();
+        } else {
+            alert('Ошибка регистрации карты: ' + result.error);
         }
     } catch (error) {
         console.error('Error registering card:', error);
@@ -210,7 +240,9 @@ async function loadAttendance() {
     if (!currentEvent) return;
 
     try {
-        const response = await fetch(`/api/events/${currentEvent.id}/attendance`);
+        const response = await fetch(`/api/events/${currentEvent.id}/attendance`, {
+            headers: getAuthHeaders()
+        });
         const result = await response.json();
 
         const log = document.getElementById('eventLog');
@@ -221,12 +253,15 @@ async function loadAttendance() {
         });
     } catch (error) {
         console.error('Error loading attendance:', error);
+        alert('Ошибка загрузки журнала посещений');
     }
 }
 
 async function loadStats() {
     try {
-        const response = await fetch('/api/stats');
+        const response = await fetch('/api/stats', {
+            headers: getAuthHeaders()
+        });
         const result = await response.json();
 
         document.getElementById('statsEvents').textContent = result.totalEvents;
@@ -243,7 +278,7 @@ async function exportData() {
         return;
     }
 
-    window.open(`/api/events/${currentEvent.id}/export`, '_blank');
+    window.open(`/api/events/${currentEvent.id}/export?token=${authToken}`, '_blank');
 }
 
 // Тестовые функции (для работы без BLE)
@@ -270,6 +305,17 @@ function generateTestUID() {
 
 // Инициализация
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing...');
+    
+    // Добавляем обработчик для кнопки входа
+    const loginButton = document.querySelector('#authSection button');
+    if (loginButton) {
+        console.log('Login button found, adding event listener');
+        loginButton.addEventListener('click', login);
+    } else {
+        console.error('Login button not found!');
+    }
+    
     // Автозаполнение тестового UID
     document.getElementById('cardUid').value = generateTestUID();
     document.getElementById('testRfidInput').value = generateTestUID();

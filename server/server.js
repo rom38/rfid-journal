@@ -1,113 +1,99 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
+
+const { db, initDatabase } = require('./config/database');
+const { authenticateToken, authenticateUser, generateToken } = require('./middleware/auth');
+const { 
+    validateLogin, 
+    validateEvent, 
+    validateRFIDCard, 
+    validateAttendance, 
+    validateEventId,
+    sanitizeRequestBody 
+} = require('./middleware/validation');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, '../public')));
+// Middleware безопасности
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+        },
+    },
+    crossOriginEmbedderPolicy: false
+}));
 
-// Инициализация базы данных
-const dbPath = path.join(__dirname, 'database', 'attendance.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('Error opening database:', err.message);
-    } else {
-        console.log('Connected to SQLite database');
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 минут
+    max: 100, // максимум 100 запросов за 15 минут
+    message: {
+        success: false,
+        error: 'Слишком много запросов, попробуйте позже'
     }
 });
+app.use(limiter);
 
-// Создание таблиц
-db.serialize(() => {
-    // Таблица мероприятий
-    db.run(`CREATE TABLE IF NOT EXISTS events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        organizer TEXT NOT NULL,
-        start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-        end_time DATETIME,
-        is_active BOOLEAN DEFAULT 1
-    )`);
+// Основное middleware
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.static(path.join(__dirname, '../public')));
+app.use(sanitizeRequestBody);
 
-    // Таблица посещений
-    db.run(`CREATE TABLE IF NOT EXISTS attendance (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        rfid_uid TEXT NOT NULL,
-        student_name TEXT,
-        event_id INTEGER,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(event_id) REFERENCES events(id)
-    )`);
-
-    // Таблица пользователей (учителей/организаторов)
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        full_name TEXT NOT NULL
-    )`);
-
-    // Таблица зарегистрированных карт
-    db.run(`CREATE TABLE IF NOT EXISTS registered_cards (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        rfid_uid TEXT UNIQUE NOT NULL,
-        student_name TEXT NOT NULL,
-        student_class TEXT,
-        registration_date DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // Добавляем тестового пользователя
-    db.run(`INSERT OR IGNORE INTO users (username, password_hash, full_name) 
-            VALUES (?, ?, ?)`, 
-            ['test', 'password', 'TestProfile']);
-    // Тестовые RFID карты
-    db.run(`INSERT OR IGNORE INTO registered_cards (rfid_uid, student_name, student_class) 
-            VALUES (?, ?, ?)`, 
-            ['A1B2C3D4', 'Петров Иван', '10А']);
-    db.run(`INSERT OR IGNORE INTO registered_cards (rfid_uid, student_name, student_class) 
-            VALUES (?, ?, ?)`, 
-            ['D4C3B2A1', 'Сидорова Анна', '10Б']);
+// Глобальная обработка ошибок
+app.use((error, req, res, next) => {
+    console.error('Global error handler:', error);
+    res.status(500).json({
+        success: false,
+        error: 'Внутренняя ошибка сервера'
+    });
 });
 
 // API Routes
 
 // Аутентификация
-app.post('/api/login', (req, res) => {
-    const { username, password } = req.body;
+app.post('/api/login', validateLogin, async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        console.log(`Login attempt for user: ${username}`);
 
-    db.get(
-        'SELECT * FROM users WHERE username = ? AND password_hash = ?',
-        [username, password],
-        (err, row) => {
-            if (err) {
-                return res.status(500).json({ error: err.message });
-            }
-            if (row) {
-                res.json({
-                    success: true,
-                    user: {
-                        id: row.id,
-                        username: row.username,
-                        fullName: row.full_name
-                    }
-                });
-            } else {
-                res.status(401).json({
-                    success: false,
-                    error: 'Неверные учетные данные'
-                });
-            }
+        const user = await authenticateUser(username, password);
+        
+        if (user) {
+            console.log(`Login successful for user: ${username}`);
+            const token = generateToken(user);
+            res.json({
+                success: true,
+                user: user,
+                token: token
+            });
+        } else {
+            console.log(`Login failed for user: ${username}`);
+            res.status(401).json({
+                success: false,
+                error: 'Неверные учетные данные'
+            });
         }
-    );
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Ошибка аутентификации'
+        });
+    }
 });
 
 // Начать мероприятие
-app.post('/api/events/start', (req, res) => {
+app.post('/api/events/start', authenticateToken, validateEvent, (req, res) => {
     const { name, organizer } = req.body;
 
     // Сначала завершаем все активные мероприятия
@@ -115,7 +101,11 @@ app.post('/api/events/start', (req, res) => {
         'UPDATE events SET end_time = CURRENT_TIMESTAMP, is_active = 0 WHERE is_active = 1',
         function(err) {
             if (err) {
-                return res.status(500).json({ error: err.message });
+                console.error('Error stopping previous events:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: 'Ошибка завершения предыдущих мероприятий' 
+                });
             }
 
             // Создаем новое мероприятие
@@ -124,7 +114,11 @@ app.post('/api/events/start', (req, res) => {
                 [name, organizer],
                 function(err) {
                     if (err) {
-                        return res.status(500).json({ error: err.message });
+                        console.error('Error creating event:', err);
+                        return res.status(500).json({ 
+                            success: false, 
+                            error: 'Ошибка создания мероприятия' 
+                        });
                     }
                     res.json({
                         success: true,
@@ -138,7 +132,7 @@ app.post('/api/events/start', (req, res) => {
 });
 
 // Завершить мероприятие
-app.post('/api/events/:id/stop', (req, res) => {
+app.post('/api/events/:id/stop', authenticateToken, validateEventId, (req, res) => {
     const eventId = req.params.id;
 
     db.run(
@@ -146,8 +140,20 @@ app.post('/api/events/:id/stop', (req, res) => {
         [eventId],
         function(err) {
             if (err) {
-                return res.status(500).json({ error: err.message });
+                console.error('Error stopping event:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: 'Ошибка завершения мероприятия' 
+                });
             }
+            
+            if (this.changes === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Мероприятие не найдено'
+                });
+            }
+
             res.json({
                 success: true,
                 message: 'Мероприятие завершено'
@@ -157,12 +163,16 @@ app.post('/api/events/:id/stop', (req, res) => {
 });
 
 // Получить активное мероприятие
-app.get('/api/events/active', (req, res) => {
+app.get('/api/events/active', authenticateToken, (req, res) => {
     db.get(
         'SELECT * FROM events WHERE is_active = 1 ORDER BY start_time DESC LIMIT 1',
         (err, row) => {
             if (err) {
-                return res.status(500).json({ error: err.message });
+                console.error('Error getting active event:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: 'Ошибка получения активного мероприятия' 
+                });
             }
             res.json({ event: row });
         }
@@ -170,7 +180,7 @@ app.get('/api/events/active', (req, res) => {
 });
 
 // Запись посещения
-app.post('/api/attendance', (req, res) => {
+app.post('/api/attendance', authenticateToken, validateAttendance, (req, res) => {
     const { rfid_uid, event_id } = req.body;
     const timestamp = new Date().toISOString();
 
@@ -180,7 +190,11 @@ app.post('/api/attendance', (req, res) => {
         [rfid_uid],
         (err, card) => {
             if (err) {
-                return res.status(500).json({ error: err.message });
+                console.error('Error checking card:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: 'Ошибка проверки карты' 
+                });
             }
 
             const studentName = card ? card.student_name : 'Неизвестный студент';
@@ -191,7 +205,11 @@ app.post('/api/attendance', (req, res) => {
                 [rfid_uid, studentName, event_id, timestamp],
                 function(err) {
                     if (err) {
-                        return res.status(500).json({ error: err.message });
+                        console.error('Error recording attendance:', err);
+                        return res.status(500).json({ 
+                            success: false, 
+                            error: 'Ошибка записи посещения' 
+                        });
                     }
                     res.json({
                         success: true,
@@ -207,7 +225,7 @@ app.post('/api/attendance', (req, res) => {
 });
 
 // Регистрация новой RFID карты
-app.post('/api/cards/register', (req, res) => {
+app.post('/api/cards/register', authenticateToken, validateRFIDCard, (req, res) => {
     const { rfid_uid, student_name, student_class } = req.body;
 
     db.run(
@@ -215,7 +233,11 @@ app.post('/api/cards/register', (req, res) => {
         [rfid_uid, student_name, student_class],
         function(err) {
             if (err) {
-                return res.status(500).json({ error: err.message });
+                console.error('Error registering card:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: 'Ошибка регистрации карты' 
+                });
             }
             res.json({
                 success: true,
@@ -226,7 +248,7 @@ app.post('/api/cards/register', (req, res) => {
 });
 
 // Получить журнал посещений для мероприятия
-app.get('/api/events/:id/attendance', (req, res) => {
+app.get('/api/events/:id/attendance', authenticateToken, validateEventId, (req, res) => {
     const eventId = req.params.id;
 
     db.all(
@@ -238,7 +260,11 @@ app.get('/api/events/:id/attendance', (req, res) => {
         [eventId],
         (err, rows) => {
             if (err) {
-                return res.status(500).json({ error: err.message });
+                console.error('Error getting attendance:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: 'Ошибка получения журнала посещений' 
+                });
             }
             res.json({ attendance: rows });
         }
@@ -246,7 +272,7 @@ app.get('/api/events/:id/attendance', (req, res) => {
 });
 
 // Экспорт данных в CSV
-app.get('/api/events/:id/export', (req, res) => {
+app.get('/api/events/:id/export', authenticateToken, validateEventId, (req, res) => {
     const eventId = req.params.id;
 
     db.all(
@@ -260,7 +286,11 @@ app.get('/api/events/:id/export', (req, res) => {
         [eventId],
         (err, rows) => {
             if (err) {
-                return res.status(500).json({ error: err.message });
+                console.error('Error exporting data:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: 'Ошибка экспорта данных' 
+                });
             }
 
             let csv = 'Мероприятие;RFID UID;ФИО студента;Класс;Время посещения\n';
@@ -276,12 +306,16 @@ app.get('/api/events/:id/export', (req, res) => {
 });
 
 // Получить список зарегистрированных карт
-app.get('/api/cards', (req, res) => {
+app.get('/api/cards', authenticateToken, (req, res) => {
     db.all(
         'SELECT * FROM registered_cards ORDER BY student_name',
         (err, rows) => {
             if (err) {
-                return res.status(500).json({ error: err.message });
+                console.error('Error getting cards:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: 'Ошибка получения списка карт' 
+                });
             }
             res.json({ cards: rows });
         }
@@ -289,46 +323,67 @@ app.get('/api/cards', (req, res) => {
 });
 
 // Статистика
-app.get('/api/stats', (req, res) => {
+app.get('/api/stats', authenticateToken, (req, res) => {
     const queries = {
         totalEvents: 'SELECT COUNT(*) as count FROM events',
         totalRecords: 'SELECT COUNT(*) as count FROM attendance',
-        totalCards: 'SELECT COUNT(*) as count FROM registered_cards',
-        recentActivity: `SELECT a.*, e.name as event_name 
-                        FROM attendance a 
-                        JOIN events e ON a.event_id = e.id 
-                        ORDER BY a.timestamp DESC 
-                        LIMIT 10`
+        totalCards: 'SELECT COUNT(*) as count FROM registered_cards'
     };
 
     const results = {};
 
     db.get(queries.totalEvents, (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
+        if (err) {
+            console.error('Error getting stats:', err);
+            return res.status(500).json({ 
+                success: false, 
+                error: 'Ошибка получения статистики' 
+            });
+        }
         results.totalEvents = row.count;
 
         db.get(queries.totalRecords, (err, row) => {
-            if (err) return res.status(500).json({ error: err.message });
+            if (err) {
+                console.error('Error getting stats:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: 'Ошибка получения статистики' 
+                });
+            }
             results.totalRecords = row.count;
 
             db.get(queries.totalCards, (err, row) => {
-                if (err) return res.status(500).json({ error: err.message });
+                if (err) {
+                    console.error('Error getting stats:', err);
+                    return res.status(500).json({ 
+                        success: false, 
+                        error: 'Ошибка получения статистики' 
+                    });
+                }
                 results.totalCards = row.count;
 
-                db.all(queries.recentActivity, (err, rows) => {
-                    if (err) return res.status(500).json({ error: err.message });
-                    results.recentActivity = rows;
-
-                    res.json(results);
-                });
+                res.json(results);
             });
         });
     });
 });
 
 // Запуск сервера
-app.listen(PORT, () => {
-    console.log(`🚀 Сервер запущен на порту ${PORT}`);
-    console.log(`📊 Откройте в браузере: http://localhost:${PORT}`);
-    console.log(`🔑 Тестовый пользователь: test / password`);
-});
+const startServer = async () => {
+    try {
+        await initDatabase();
+        
+        app.listen(PORT, () => {
+            console.log(`🚀 Сервер запущен на порту ${PORT}`);
+            console.log(`📊 Откройте в браузере: http://localhost:${PORT}`);
+            console.log(`🔑 Тестовый пользователь: test / password`);
+            console.log(`🔒 Режим безопасности: ВКЛЮЧЕН`);
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+};
+
+// Запускаем сервер
+startServer();
