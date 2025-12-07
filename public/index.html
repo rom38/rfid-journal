@@ -14,7 +14,7 @@
             <h2>🔐 Вход в систему</h2>
             <input type="text" id="username" placeholder="Логин" value="test">
             <input type="password" id="password" placeholder="Пароль" value="password">
-            <button class="btn" onclick="login()">Войти</button>
+            <button class="btn" id="loginBtn">Войти</button>
         </div>
 
         <!-- Основной интерфейс -->
@@ -31,14 +31,14 @@
                     <div id="eventStatus" class="status status-disconnected">
                         Мероприятие не активно
                     </div>
-                    <button class="btn btn-success" onclick="startEvent()" id="startBtn">Начать мероприятие</button>
-                    <button class="btn btn-danger" onclick="stopEvent()" id="stopBtn" disabled>Завершить мероприятие</button>
+                    <button class="btn btn-success" id="startBtn">Начать мероприятие</button>
+                    <button class="btn btn-danger" id="stopBtn" disabled>Завершить мероприятие</button>
                     
                     <h3 style="margin-top: 20px;">📋 Зарегистрировать новую карту</h3>
                     <input type="text" id="cardUid" placeholder="UID RFID карты">
                     <input type="text" id="studentName" placeholder="ФИО студента">
                     <input type="text" id="studentClass" placeholder="Класс">
-                    <button class="btn" onclick="registerCard()">Зарегистрировать карту</button>
+                    <button class="btn" id="registerCardBtn">Зарегистрировать карту</button>
                 </div>
 
                 <!-- Статус сканирования -->
@@ -47,7 +47,19 @@
                     <div id="scannerStatus" class="status status-disconnected">
                         Сканер не подключен
                     </div>
-                    <button class="btn" onclick="connectScanner()" id="connectBtn">Подключить BLE сканер</button>
+                    
+                    <!-- Анимация сканирования -->
+                    <div id="scanAnimation" class="scan-animation" style="display: none;"></div>
+                    
+                    <div class="button-group">
+                        <button class="btn" id="connectBtn">Подключить BLE сканер</button>
+                        <button class="btn btn-danger" id="disconnectBtn" disabled>Отключить BLE</button>
+                    </div>
+                    
+                    <h3 style="margin-top: 20px;">🔍 Тестирование Bluetooth</h3>
+                    <div class="button-group">
+                        <button class="btn" id="testGetRfidBtn">Тест getRFID()</button>
+                    </div>
                     
                     <h3 style="margin-top: 20px;">📊 Статистика</h3>
                     <div id="statsInfo">
@@ -61,8 +73,8 @@
             <!-- Журнал событий -->
             <div class="card">
                 <h2>📝 Журнал событий</h2>
-                <button class="btn" onclick="loadAttendance()">Обновить журнал</button>
-                <button class="btn" onclick="exportData()">Экспорт в CSV</button>
+                <button class="btn" id="loadAttendanceBtn">Обновить журнал</button>
+                <button class="btn" id="exportDataBtn">Экспорт в CSV</button>
                 <div id="eventLog" style="margin-top: 15px; max-height: 400px; overflow-y: auto;"></div>
             </div>
 
@@ -70,7 +82,7 @@
             <div class="card">
                 <h3>🧪 Тестовый ввод RFID (без BLE)</h3>
                 <input type="text" id="testRfidInput" placeholder="Введите тестовый UID RFID">
-                <button class="btn" onclick="simulateRFID()">Симулировать сканирование</button>
+                <button class="btn" id="simulateRfidBtn">Симулировать сканирование</button>
             </div>
         </div>
     </div>
