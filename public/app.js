@@ -202,6 +202,7 @@ async function connectScanner() {
         updateScannerStatus(`Подключено: ${bluetoothDevice.name || 'Unknown'}`, 'status-connected');
         document.getElementById('connectBtn').disabled = true;
         document.getElementById('connectBtn').textContent = 'BLE подключен';
+        document.getElementById('disconnectBtn').disabled = false;
         
         // Обработка отключения
         bluetoothDevice.addEventListener('gattserverdisconnected', () => {
@@ -269,6 +270,11 @@ function resetBluetoothConnection() {
     if (connectBtn) {
         connectBtn.disabled = false;
         connectBtn.textContent = 'Подключить BLE';
+    }
+    
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    if (disconnectBtn) {
+        disconnectBtn.disabled = true;
     }
     
     updateScannerStatus('Не подключено', 'status-disconnected');
