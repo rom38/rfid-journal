@@ -18,18 +18,25 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Middleware безопасности
+// app.use(helmet({
+//     contentSecurityPolicy: {
+//         directives: {
+//             defaultSrc: ["'self'"],
+//             scriptSrc: ["'self'", "'unsafe-inline'"],
+//             styleSrc: ["'self'", "'unsafe-inline'"],
+//             imgSrc: ["'self'", "data:", "https:"],
+//         },
+//     },
+//     crossOriginEmbedderPolicy: false
+// }));
+
 app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "https:"],
-        },
-    },
-    crossOriginEmbedderPolicy: false
+    contentSecurityPolicy: false, // Отключаем CSP для локальной разработки
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false
 }));
 
 // Rate limiting
@@ -373,9 +380,9 @@ const startServer = async () => {
     try {
         await initDatabase();
         
-        app.listen(PORT, () => {
+        app.listen(PORT, HOST, () => {
             console.log(`🚀 Сервер запущен на порту ${PORT}`);
-            console.log(`📊 Откройте в браузере: http://localhost:${PORT}`);
+            console.log(`📊 Откройте в браузере: http://${HOST}:${PORT}`);
             console.log(`🔑 Тестовый пользователь: test / password`);
             console.log(`🔒 Режим безопасности: ВКЛЮЧЕН`);
         });
