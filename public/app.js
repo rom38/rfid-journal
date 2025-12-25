@@ -523,23 +523,54 @@ async function exportData() {
         return;
     }
 
-    window.open(`/api/events/${currentEvent.id}/export?token=${authToken}`, '_blank');
+    // Создаем временную ссылку для скачивания файла
+    const exportUrl = `/api/events/${currentEvent.id}/export`;
+    
+    try {
+        const response = await fetch(exportUrl, {
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Ошибка сервера: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `event_${currentEvent.id}_attendance.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        addToLog('✅ Файл CSV успешно скачан');
+    } catch (error) {
+        console.error('Export error:', error);
+        alert(`Ошибка экспорта: ${error.message}`);
+        addToLog(`❌ Ошибка экспорта: ${error.message}`);
+    }
 }
 
 // Тестовые функции (для работы без BLE)
 function setupTestInput() {
-    document.getElementById('testRfidInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            simulateRFID();
-        }
-    });
+    const testInput = document.getElementById('testRfidInput');
+    if (testInput) {
+        testInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                simulateRFID();
+            }
+        });
+    }
 }
 
 function simulateRFID() {
-    const testUid = document.getElementById('testRfidInput').value.trim();
+    const testUid = document.getElementById('testRfidInput')?.value.trim();
     if (testUid) {
         handleRFIDScan(testUid);
-        document.getElementById('testRfidInput').value = '';
+        const input = document.getElementById('testRfidInput');
+        if (input) input.value = '';
     }
 }
 
@@ -612,13 +643,6 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Disconnect scanner button event listener added');
         }
         
-        // Кнопка тестирования getRFID
-        const testGetRfidBtn = document.getElementById('testGetRfidBtn');
-        if (testGetRfidBtn) {
-            testGetRfidBtn.addEventListener('click', testGetRFID);
-            console.log('Test getRFID button event listener added');
-        }
-        
         // Кнопки журнала событий
         const loadAttendanceBtn = document.getElementById('loadAttendanceBtn');
         if (loadAttendanceBtn) {
@@ -632,19 +656,11 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Export data button event listener added');
         }
         
-        // Кнопка симуляции RFID
-        const simulateRfidBtn = document.getElementById('simulateRfidBtn');
-        if (simulateRfidBtn) {
-            simulateRfidBtn.addEventListener('click', simulateRFID);
-            console.log('Simulate RFID button event listener added');
-        }
-        
-        // Настройка тестового ввода
-        setupTestInput();
-        
         // Автозаполнение тестового UID
-        document.getElementById('cardUid').value = generateTestUID();
-        document.getElementById('testRfidInput').value = generateTestUID();
+        const cardUidInput = document.getElementById('cardUid');
+        if (cardUidInput) {
+            cardUidInput.value = generateTestUID();
+        }
         
         console.log('All event listeners initialized successfully');
     }
