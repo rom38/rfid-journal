@@ -1,8 +1,16 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const bcrypt = require('bcrypt');
+const fs = require('fs');
 
 const dbPath = path.join(__dirname, '../database', 'attendance.db');
+const dbDir = path.dirname(dbPath);
+
+// Create the directory if it doesn't exist
+if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+}
+
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error('Error opening database:', err.message);
