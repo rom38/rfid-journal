@@ -280,7 +280,8 @@ app.get('/api/events/:id/attendance', authenticateToken, validateEventId, (req, 
 
 // Экспорт данных в CSV
 // app.get('/api/events/id/export', authenticateToken, validateEventId, (req, res) => {
-app.get('/api/events/id/export', authenticateToken, (req, res) => {
+// app.get('/api/events/id/export', authenticateToken, (req, res) => {
+app.get('/api/events/id/export', authenticateToken, ()=>{}, (req, res) => {
     // const eventId = req.params.id;
     const eventId = 1;
 
