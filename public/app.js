@@ -541,7 +541,8 @@ async function exportData() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `event_${currentEvent.id}_attendance.csv`;
+        // a.download = `event_${currentEvent.id}_attendance.csv`;
+        a.download = `event_all_attendance.csv`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
