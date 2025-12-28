@@ -300,7 +300,8 @@ app.get('/api/events/id/export', authenticateToken, (req, res, next) => {next()}
          JOIN events e ON a.event_id = e.id 
          LEFT JOIN registered_cards rc ON a.rfid_uid = rc.rfid_uid 
          ORDER BY a.timestamp`,
-        [eventId],
+        // [eventId],
+        [],
         (err, rows) => {
             if (err) {
                 console.error('Error exporting data:', err);
