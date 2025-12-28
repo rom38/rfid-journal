@@ -284,6 +284,14 @@ app.get('/api/events/id/export', authenticateToken, (req, res) => {
     // const eventId = req.params.id;
     const eventId = 1;
 
+    // `SELECT e.name as event_name, a.rfid_uid, a.student_name, 
+    //         rc.student_class, a.timestamp 
+    //  FROM attendance a 
+    //  JOIN events e ON a.event_id = e.id 
+    //  LEFT JOIN registered_cards rc ON a.rfid_uid = rc.rfid_uid 
+    //  WHERE a.event_id = ? 
+    //  ORDER BY a.timestamp`,
+    
     db.all(
         `SELECT e.name as event_name, a.rfid_uid, a.student_name, 
                 rc.student_class, a.timestamp 
@@ -291,13 +299,6 @@ app.get('/api/events/id/export', authenticateToken, (req, res) => {
          JOIN events e ON a.event_id = e.id 
          LEFT JOIN registered_cards rc ON a.rfid_uid = rc.rfid_uid 
          ORDER BY a.timestamp`,
-        // `SELECT e.name as event_name, a.rfid_uid, a.student_name, 
-        //         rc.student_class, a.timestamp 
-        //  FROM attendance a 
-        //  JOIN events e ON a.event_id = e.id 
-        //  LEFT JOIN registered_cards rc ON a.rfid_uid = rc.rfid_uid 
-        //  WHERE a.event_id = ? 
-        //  ORDER BY a.timestamp`,
         [eventId],
         (err, rows) => {
             if (err) {
