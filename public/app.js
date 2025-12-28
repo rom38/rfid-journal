@@ -526,7 +526,7 @@ async function exportData() {
 
     // Создаем временную ссылку для скачивания файла
     // const exportUrl = `/api/events/${currentEvent.id}/export`;
-    const exportUrl = `/api/events/1/export`;
+    const exportUrl = `/api/events/id/export`;
     
     try {
         const response = await fetch(exportUrl, {

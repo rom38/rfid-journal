@@ -279,8 +279,10 @@ app.get('/api/events/:id/attendance', authenticateToken, validateEventId, (req, 
 });
 
 // Экспорт данных в CSV
-app.get('/api/events/:id/export', authenticateToken, validateEventId, (req, res) => {
-    const eventId = req.params.id;
+// app.get('/api/events/id/export', authenticateToken, validateEventId, (req, res) => {
+app.get('/api/events/id/export', authenticateToken, (req, res) => {
+    // const eventId = req.params.id;
+    const eventId = 1;
 
     db.all(
         `SELECT e.name as event_name, a.rfid_uid, a.student_name, 
