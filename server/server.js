@@ -288,7 +288,6 @@ app.get('/api/events/:id/export', authenticateToken, validateEventId, (req, res)
          FROM attendance a 
          JOIN events e ON a.event_id = e.id 
          LEFT JOIN registered_cards rc ON a.rfid_uid = rc.rfid_uid 
-         WHERE a.event_id = ? 
          ORDER BY a.timestamp`,
         // `SELECT e.name as event_name, a.rfid_uid, a.student_name, 
         //         rc.student_class, a.timestamp 
