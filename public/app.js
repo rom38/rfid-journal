@@ -542,13 +542,14 @@ async function exportData() {
         const a = document.createElement('a');
         a.href = url;
         // a.download = `event_${currentEvent.id}_attendance.csv`;
-        a.download = `event_all_attendance.csv`;
+        // a.download = `event_all_attendance.csv`;
+        a.download = `event_all_attendance.xlsx`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         
-        addToLog('✅ Файл CSV успешно скачан');
+        addToLog('✅ Файл XLSX успешно скачан');
     } catch (error) {
         console.error('Export error:', error);
         alert(`Ошибка экспорта: ${error.message}`);
