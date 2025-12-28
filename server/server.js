@@ -48,7 +48,7 @@ function UnicodeToWin1251(s) {
 }
 
 function utf8_decode (aa) {
-    if (aa == undefined) return aa;
+    if (!aa) return aa;
     var bb = '', c = 0;
     for (var i = 0; i < aa.length; i++) {
         c = aa.charCodeAt(i);
