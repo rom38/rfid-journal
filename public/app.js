@@ -520,7 +520,7 @@ async function loadStats() {
 async function exportData() {
     if (!currentEvent) {
         // alert('Нет активного мероприятия для экспорта');
-        currentEvent=1;
+        currentEvent='all';
         return;
     }
 
