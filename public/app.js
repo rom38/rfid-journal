@@ -518,10 +518,11 @@ async function loadStats() {
 }
 
 async function exportData() {
-    // if (!currentEvent) {
-    //     alert('Нет активного мероприятия для экспорта');
-    //     return;
-    // }
+    if (!currentEvent) {
+        // alert('Нет активного мероприятия для экспорта');
+        currentEvent=1;
+        return;
+    }
 
     // Создаем временную ссылку для скачивания файла
     const exportUrl = `/api/events/${currentEvent.id}/export`;
