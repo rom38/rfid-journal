@@ -518,14 +518,15 @@ async function loadStats() {
 }
 
 async function exportData() {
-    if (!currentEvent) {
-        // alert('Нет активного мероприятия для экспорта');
-        currentEvent='all';
-        return;
-    }
+    // if (!currentEvent) {
+    //     // alert('Нет активного мероприятия для экспорта');
+    //     currentEvent='all';
+    //     return;
+    // }
 
     // Создаем временную ссылку для скачивания файла
-    const exportUrl = `/api/events/${currentEvent.id}/export`;
+    // const exportUrl = `/api/events/${currentEvent.id}/export`;
+    const exportUrl = `/api/events/1/export`;
     
     try {
         const response = await fetch(exportUrl, {
