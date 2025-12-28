@@ -47,6 +47,26 @@ function UnicodeToWin1251(s) {
     return L.join('')
 }
 
+function utf8_decode (aa) {
+    if (aa == undefined) return aa;
+    var bb = '', c = 0;
+    for (var i = 0; i < aa.length; i++) {
+        c = aa.charCodeAt(i);
+        if (c > 127) {
+            if (c > 1024) {
+                if (c == 1025) {
+                    c = 1016;
+                } else if (c == 1105) {
+                    c = 1032;
+                }
+                bb += String.fromCharCode(c - 848);
+            }
+        } else {
+            bb += aa.charAt(i);
+        }
+    }
+    return bb;
+}
 
 
 app.use(helmet({
@@ -327,9 +347,9 @@ app.get('/api/events/id/export', authenticateToken, (req, res, next) => {next()}
                 });
             }
 
-            let csv = 'Мероприятие;RFID UID;ФИО студента;Класс;Время посещения\n';
+            let csv = utf8_decode('Мероприятие;RFID UID;ФИО студента;Класс;Время посещения\n');
             rows.forEach(row => {
-                csv += `"${UnicodeToWin1251(row.event_name)}";"${row.rfid_uid}";"${UnicodeToWin1251(row.student_name)}";"${UnicodeToWin1251(row.student_class) || ''}";"${row.timestamp}"\n`;
+                csv += `"${utf8_decode(row.event_name)}";"${row.rfid_uid}";"${utf8_decode(row.student_name)}";"${utf8_decode(row.student_class) || ''}";"${row.timestamp}"\n`;
             });
 
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
