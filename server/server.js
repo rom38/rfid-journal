@@ -389,10 +389,10 @@ app.get('/api/events/id/export', authenticateToken, (req, res, next) => { next()
 
             // Устанавливаем ширину столбцов
             worksheet['!cols'] = [
-                { wch: 30 },  // Мероприятие
-                { wch: 20 },  // RFID UID
-                { wch: 30 },  // ФИО студента
-                { wch: 10 },  // Класс
+                { wch: 20 },  // Мероприятие
+                { wch: 10 },  // RFID UID
+                { wch: 20 },  // ФИО студента
+                { wch: 5 },  // Класс
                 { wch: 20 }   // Время посещения
             ];
 
